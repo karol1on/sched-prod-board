@@ -52,13 +52,22 @@ try {
   const ids = () => page.getByTestId('incident-row').evaluateAll((rows) => rows.map((r) => r.dataset.id));
   check(JSON.stringify(await ids()) === '["INC-2","INC-1"]', 'SCHED-4511 rows newest first');
 
-  const top = await page.waitForFunction(() => document.querySelector('[data-testid="incident-row"]')?.dataset.id === 'INC-3', null, { timeout: 7000 }).then(() => true, () => false);
-  check(top, 'SCHED-4511/4513 new incident shows at the top without a reload');
-
+  // Ack like a person (SCHED-4515): aim at INC-1's Ack by position, click 300 ms after INC-3 lands.
   const row = page.locator('[data-testid="incident-row"][data-id="INC-1"]');
-  await row.getByTestId('ack').click({ timeout: 2000 }).catch(() => {});
+  const box = await row.getByTestId('ack').boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 5 });
+  await page.waitForFunction(() => document.querySelector('[data-testid="new-bar"]')?.checkVisibility?.({ visibilityProperty: true }) || document.querySelector('[data-testid="incident-row"]')?.dataset.id === 'INC-3', null, { timeout: 7000 }).catch(() => {});
+  await page.waitForTimeout(300);
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
   const markShown = await row.getByTestId('acked').waitFor({ timeout: 3000 }).then(() => true, () => false);
-  check(markShown && JSON.stringify(acked) === '["INC-1"]', 'SCHED-4511 Ack on a row acks that incident and marks the row');
+  check(markShown && JSON.stringify(acked) === '["INC-1"]', `SCHED-4511/4515 an Ack clicked by position as an incident lands acks the row meant (acked ${JSON.stringify(acked)})`);
+
+  check(JSON.stringify(await ids()) === '["INC-2","INC-1"]', 'SCHED-4515 the list holds still while a new incident waits');
+  const bar = page.getByTestId('new-bar');
+  check((await bar.isVisible()) && /1 new/.test(await bar.textContent()), 'SCHED-4515 the "N new" bar shows the count');
+  await bar.click({ timeout: 2000 }).catch(() => {});
+  check(JSON.stringify(await ids()) === '["INC-3","INC-2","INC-1"]' && !(await bar.isVisible()), 'SCHED-4515 a click on the bar puts the new incident on top and hides the bar');
+  check((await page.locator('[data-testid="incident-row"][data-id="INC-3"] [data-testid="ack"]').count()) === 1, 'SCHED-4515 Ack stays on the new row');
   await page.waitForTimeout(2500); // one more refresh
   check((await row.getByTestId('acked').count()) === 1, 'SCHED-4511 acked mark survives a refresh');
 
@@ -73,6 +82,15 @@ try {
   check((await row.locator('time').getAttribute('datetime')) === '2026-11-12T03:03:00.000Z', 'SCHED-4514 full UTC kept in <time datetime>');
   check(/12\.11\.\d+.*04:03/.test(berlinTime), `SCHED-4514 Berlin sees 12.11 04:03 (got "${berlinTime}")`);
   await berlin.close();
+
+  // A quiet night: no incidents
+  const quiet = await browser.newContext();
+  await quiet.route('**/challenges/show-me-when/api/incidents*', (route) => route.fulfill({ json: { updatedAt: new Date().toISOString(), incidents: [], cursor: 'q' } }));
+  const q = await quiet.newPage();
+  await q.goto(url);
+  const emptyShown = await q.getByTestId('empty').waitFor({ timeout: 5000 }).then(() => true, () => false);
+  check(emptyShown && !(await q.getByTestId('loader').isVisible().catch(() => false)), 'SCHED-4512 no incidents: loader gone, empty state shows');
+  await quiet.close();
 
   // Auckland viewer: same incident, own zone and order
   const auckland = await browser.newContext({ locale: 'en-NZ', timezoneId: 'Pacific/Auckland' });

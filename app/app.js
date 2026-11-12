@@ -6,6 +6,7 @@ const board = document.querySelector('[data-testid="board"]');
 const loader = document.querySelector('[data-testid="loader"]');
 const empty = document.querySelector('[data-testid="empty"]');
 const list = document.querySelector('[data-testid="incident-list"]');
+const newBar = document.querySelector('[data-testid="new-bar"]');
 
 // R5: the viewer's own zone and locale order (en-GB, de-DE, en-NZ put the day first).
 const timeFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'short', timeStyle: 'short' });
@@ -53,21 +54,40 @@ async function onAck(li, id, button) {
   }
 }
 
+// R1 (changed by product): rows on screen never move. New incidents wait in `waiting` behind the "N new" bar.
+const waiting = new Set();
+
 function render() {
-  // R1: newest first. Merge by id, so a full page and a since-delta both work.
-  const ordered = [...incidents.values()].sort((a, b) => b.openedAt.localeCompare(a.openedAt));
-  ordered.forEach((i, index) => {
-    let li = rows.get(i.id);
-    if (!li) rows.set(i.id, (li = makeRow(i)));
-    fillRow(li, i);
-    if (list.children[index] !== li) list.insertBefore(li, list.children[index] ?? null);
-  });
-  empty.hidden = incidents.size > 0;
+  for (const [id, li] of rows) fillRow(li, incidents.get(id));
+  empty.hidden = rows.size > 0;
+  newBar.textContent = waiting.size ? `${waiting.size} new incident${waiting.size > 1 ? 's' : ''} · show` : '';
+  newBar.classList.toggle('on', waiting.size > 0); // its slot is always reserved, so this moves nothing
 }
 
+// Puts the waiting incidents on screen, newest first, above the rows already shown (those are never re-inserted).
+function bringIn() {
+  const fresh = [...waiting].map((id) => incidents.get(id)).sort((a, b) => b.openedAt.localeCompare(a.openedAt));
+  const frag = document.createDocumentFragment();
+  for (const i of fresh) {
+    const li = makeRow(i);
+    rows.set(i.id, li);
+    frag.append(li);
+  }
+  list.prepend(frag);
+  waiting.clear();
+  render();
+}
+newBar.addEventListener('click', bringIn);
+
+let first = true;
 async function refresh() {
   const page = await fetchIncidents();
-  for (const i of page.incidents) incidents.set(i.id, i);
+  for (const i of page.incidents) {
+    incidents.set(i.id, i);
+    if (!rows.has(i.id)) waiting.add(i.id);
+  }
+  if (first) bringIn(); // the first answer fills the board directly
+  first = false;
   render();
   loader.remove(); // R3: gone once incidents are on screen
   board.removeAttribute('aria-busy');

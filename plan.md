@@ -13,7 +13,10 @@ what just broke and takes it.
 
 ## Requirements
 
-- **R1** New incidents appear live at the top of the list, newest first.
+- **R1** The list holds still while it is on screen: rows never move under the pointer. New incidents wait
+  behind a **"N new"** bar above the list; a click on the bar brings them in at the top, newest first.
+  *(Changed 2026-11-12 by product, after the step-1 recording showed an Ack landing on the neighbour row when a
+  new incident pushed the list down at 00:11. Was: "New incidents appear live at the top of the list, newest first.")*
 - **R2** Each incident row has an **Ack** button. Ack sends the ack (`api.ack(id)`) and marks the row acked.
 - **R3** Show a loader until incidents load.
 - **R4** The board refreshes itself every 2 seconds while open.
@@ -32,6 +35,7 @@ what just broke and takes it.
 | `ack` | the Ack button in a row |
 | `acked` | the acked mark in a row |
 | `build-sha` | the sha in the footer |
+| `new-bar` | the "N new" bar (visible only when new incidents wait) |
 
 ## Done
 

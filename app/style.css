@@ -15,3 +15,6 @@ footer { color: #777; font-size: 13px; }
 .row .acked { color: #1a7f37; font-weight: 600; }
 .loader, .empty { color: #555; }
 footer code { font-family: ui-monospace, monospace; }
+.new-slot { height: 40px; max-width: 960px; display: flex; align-items: center; }
+.new-bar { visibility: hidden; font: inherit; font-weight: 600; padding: 6px 14px; border: 0; border-radius: 6px; background: #0b57d0; color: #fff; cursor: pointer; }
+.new-bar.on { visibility: visible; }
