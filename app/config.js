@@ -1,3 +1,4 @@
-// Where the board reads from. Fill both from what start-challenge gave you.
-export const API = 'https://<course origin>/challenges/show-me-when/api';
+// Where the board reads from. build.sh writes the real file into dist/ with the session from start-challenge,
+// so the session never lands in git. For local dev, run ./build.sh and serve dist/.
+export const API = 'https://hq.mega.dev/challenges/show-me-when/api';
 export const SESSION = '<session from start-challenge>';
