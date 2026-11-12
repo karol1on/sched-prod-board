@@ -21,19 +21,23 @@ function el(tag, attrs = {}, text = '') {
 }
 
 function makeRow(i) {
-  const li = el('li', { 'data-testid': 'incident-row', 'data-id': i.id, class: `row ${i.severity}` });
-  const time = el('time', { datetime: i.openedAt, title: i.openedAt }, timeFormat.format(new Date(i.openedAt)));
+  const li = el('li', { 'data-testid': 'incident-row', 'data-id': i.id });
   const button = el('button', { type: 'button', 'data-testid': 'ack' }, 'Ack');
   button.addEventListener('click', () => onAck(li, i.id, button));
-  li.append(
-    el('span', { class: 'id' }, i.id),
-    el('span', { class: 'sev' }, i.severity),
-    el('span', { class: 'what' }, `${i.service} · ${i.region} · ${i.summary}`),
-    time,
-    el('span', { class: 'act' }),
-  );
+  li.append(el('span', { class: 'id' }, i.id), el('span', { class: 'sev' }), el('span', { class: 'what' }), el('time'), el('span', { class: 'act' }));
   li.lastChild.append(button);
   return li;
+}
+
+// Every refresh rewrites a row's fields from the latest answer (the API recomputes openedAt), but never its ack state.
+function fillRow(li, i) {
+  li.className = `row ${i.severity}`;
+  li.querySelector('.sev').textContent = i.severity;
+  li.querySelector('.what').textContent = `${i.service} · ${i.region} · ${i.summary}`;
+  const time = li.querySelector('time');
+  time.dateTime = i.openedAt;
+  time.title = i.openedAt;
+  time.textContent = timeFormat.format(new Date(i.openedAt));
 }
 
 async function onAck(li, id, button) {
@@ -55,6 +59,7 @@ function render() {
   ordered.forEach((i, index) => {
     let li = rows.get(i.id);
     if (!li) rows.set(i.id, (li = makeRow(i)));
+    fillRow(li, i);
     if (list.children[index] !== li) list.insertBefore(li, list.children[index] ?? null);
   });
   empty.hidden = incidents.size > 0;

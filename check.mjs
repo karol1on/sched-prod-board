@@ -19,6 +19,8 @@ async function fakeApi(context) {
     calls += 1;
     if (calls === 1) await new Promise((r) => setTimeout(r, 800)); // slow first answer, so the loader is visible
     const incidents = calls >= 3 ? [late, ...base] : [...base];
+    // like the course API, openedAt can change between answers: from the 4th answer INC-2 says 04:14
+    if (calls >= 4) incidents[incidents.findIndex((i) => i.id === 'INC-2')] = { ...base[1], openedAt: '2026-11-12T04:14:00.000Z' };
     incidents.sort((a, b) => b.openedAt.localeCompare(a.openedAt));
     await route.fulfill({ json: { updatedAt: new Date().toISOString(), incidents, cursor: `c${calls}` } });
   });
@@ -59,6 +61,9 @@ try {
   check(markShown && JSON.stringify(acked) === '["INC-1"]', 'SCHED-4511 Ack on a row acks that incident and marks the row');
   await page.waitForTimeout(2500); // one more refresh
   check((await row.getByTestId('acked').count()) === 1, 'SCHED-4511 acked mark survives a refresh');
+
+  const inc2 = page.locator('[data-testid="incident-row"][data-id="INC-2"] time');
+  check((await inc2.getAttribute('datetime')) === '2026-11-12T04:14:00.000Z' && /05:14/.test(await inc2.textContent()), 'SCHED-4513 a refresh updates a row that changed (openedAt 04:04 -> 04:14)');
 
   const meta = await page.locator('meta[name="build"]').getAttribute('content').catch(() => null);
   const footer = (await page.getByTestId('build-sha').textContent().catch(() => '')).trim();
